@@ -18,7 +18,18 @@ for(const name of ['encoder_int8.onnx','decoder_int8.onnx','vocab.json']){
 }
 await mkdir(new URL('../public/ort/',import.meta.url),{recursive:true});
 // include all available WASM binaries in the published site (onnxruntime-web chooses the needed file).
-const {readdir,copyFile}=await import('node:fs/promises');
+const {readdir,copyFile,stat}=await import('node:fs/promises');
 const dep=new URL('../node_modules/onnxruntime-web/dist/',import.meta.url);
-for(const f of await readdir(dep)){if(f.endsWith('.wasm'))await copyFile(new URL(f,dep),new URL('../public/ort/'+f,import.meta.url));}
-console.log('ONNX models and WASM assets are ready');
+const MAX_PAGES_ASSET_BYTES=25*1024*1024;
+for(const f of await readdir(dep)){
+  if(!f.endsWith('.wasm'))continue;
+  const from=new URL(f,dep);
+  const bytes=(await stat(from)).size;
+  if(bytes>MAX_PAGES_ASSET_BYTES){
+    console.log('Skipping oversized optional WASM for Cloudflare Pages:',f,(bytes/1048576).toFixed(2)+' MiB');
+    continue;
+  }
+  await copyFile(from,new URL('../public/ort/'+f,import.meta.url));
+  console.log('Included WASM:',f,(bytes/1048576).toFixed(2)+' MiB');
+}
+console.log('ONNX models and compatible WASM assets are ready');
