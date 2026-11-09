@@ -1,0 +1,1 @@
+Download encoder_int8.onnx, decoder_int8.onnx and vocab.json from ink-on v0.1.0 GitHub Release. Run npm run models:download or allow GitHub Actions workflow to download them.
