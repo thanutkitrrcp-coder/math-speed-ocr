@@ -17,19 +17,21 @@ for(const name of ['encoder_int8.onnx','decoder_int8.onnx','vocab.json']){
   await writeFile(path,buff);console.log('downloaded:',name,buff.length);
 }
 await mkdir(new URL('../public/ort/',import.meta.url),{recursive:true});
-// include all available WASM binaries in the published site (onnxruntime-web chooses the needed file).
-const {readdir,copyFile,stat}=await import('node:fs/promises');
-const dep=new URL('../node_modules/onnxruntime-web/dist/',import.meta.url);
-const MAX_PAGES_ASSET_BYTES=25*1024*1024;
-for(const f of await readdir(dep)){
-  if(!f.endsWith('.wasm'))continue;
-  const from=new URL(f,dep);
-  const bytes=(await stat(from)).size;
-  if(bytes>MAX_PAGES_ASSET_BYTES){
-    console.log('Skipping oversized optional WASM for Cloudflare Pages:',f,(bytes/1048576).toFixed(2)+' MiB');
-    continue;
-  }
-  await copyFile(from,new URL('../public/ort/'+f,import.meta.url));
-  console.log('Included WASM:',f,(bytes/1048576).toFixed(2)+' MiB');
+const {copyFile,stat}=await import('node:fs/promises');
+const dist=new URL('../node_modules/onnxruntime-web/dist/',import.meta.url);
+const dest=new URL('../public/ort/',import.meta.url);
+const MAX_PAGES_BYTES=25*1024*1024;
+// Exact paired artifacts used by the upstream ink-on browser implementation.
+// Do not copy asyncify or unrelated WebGPU/WebNN binaries.
+for(const name of [
+  'ort.all.min.mjs',
+  'ort-wasm-simd-threaded.jsep.mjs',
+  'ort-wasm-simd-threaded.jsep.wasm'
+]){
+  const from=new URL(name,dist);
+  const size=(await stat(from)).size;
+  if(size>MAX_PAGES_BYTES)throw new Error(name+' exceeds Cloudflare Pages 25 MiB asset limit');
+  await copyFile(from,new URL(name,dest));
+  console.log('Included paired ONNX runtime asset:',name,size,'bytes');
 }
-console.log('ONNX models and compatible WASM assets are ready');
+console.log('ONNX models and paired runtime assets are ready');
